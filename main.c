@@ -18,11 +18,19 @@ const unsigned char blank_data[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x
 #define TOAD_SMOKE_FRAME_DELAY 45
 
 // Sprite indexes
+// Toad smoke
 #define TOAD_SMOKE_SPRITE_INDEX 0 // Metasprite size: 1 x 2 = 2 sprites
 #define TOAD_SMOKE_SPRITE_COUNT 2
-
+// Toad body
 #define TOAD_BODY_SPRITE_INDEX 2 // Metasprite size: 2 x 3 = 6 sprites
 #define TOAD_BODY_SPRITE_COUNT 6
+
+// Sprite frames
+// Toad body stand
+#define TOAD_BODY_STAND_FRAME 0
+// Toad body walk
+#define TOAD_BODY_WALK_FRAME_START 1
+#define TOAD_BODY_WALK_FRAME_END 3
 
 void load_toad_data(Character *toad, UINT8 first_tile)
 {
@@ -84,7 +92,7 @@ void setup_toad(Character *toad)
 
     // Toad: 2x3
     toad->body_animate = 0;
-    toad->body_frame_index = 0;
+    toad->body_frame_index = TOAD_BODY_STAND_FRAME;
     toad->body_frame_delay = 0;
 
     // Toad Smoke: 2x1
@@ -108,7 +116,7 @@ void main(void)
 
     // Load toad sprite data.
     load_toad_data(&toad, 1);
-    
+
     // Set initial toad values.
     setup_toad(&toad);
 
@@ -119,24 +127,24 @@ void main(void)
         if (toad.body_animate && !toad.body_frame_delay)
         {
             // Animate the body when Toad is moving.
+            toad.updated = 1;
             toad.body_frame_delay = FRAME_DELAY;
             toad.body_frame_index++;
-            // Number of frames = (sizeof(toadbody_metasprites) >> 1)
-            if (toad.body_frame_index >= (sizeof(toadbody_metasprites) >> 1))
-                // Reached the last frame. Reset to the second frame.
-                toad.body_frame_index = 1; // Body animation loops from 1 instead of 0.
-            toad.updated = 1;
+
+            if (toad.body_frame_index > TOAD_BODY_WALK_FRAME_END)
+                // Reached the last frame. Reset to FRAME_START.
+                toad.body_frame_index = TOAD_BODY_WALK_FRAME_START;
         }
         if (!toad.body_animate && !toad.smoke_frame_delay)
         {
             // Animate the smoke when Toad stops moving.
+            toad.updated = 1;
             toad.smoke_frame_delay = TOAD_SMOKE_FRAME_DELAY;
             toad.smoke_frame_index++;
             // Number of frames = (sizeof(toadsmoke_metasprites) >> 1)
             if (toad.smoke_frame_index >= (sizeof(toadsmoke_metasprites) >> 1))
-                // Reached the last frame. Reset to the first frame.
+                // Reached the last frame. Reset to first frame.
                 toad.smoke_frame_index = 0;
-            toad.updated = 1;
         }
 
         if (joypads.joy0 & J_LEFT)
@@ -145,9 +153,9 @@ void main(void)
             toad.facing_right = 0;
             if (can_toad_move(&toad, toad.x - 1, toad.y))
             {
-                toad.x -= 1;
-                toad.body_animate = 1;
                 toad.updated = 1;
+                toad.x -= 1;
+                toad.body_animate = 1; // Start body animation
             }
         }
         else if (joypads.joy0 & J_RIGHT)
@@ -156,39 +164,36 @@ void main(void)
             toad.facing_right = 1;
             if (can_toad_move(&toad, toad.x + 1, toad.y))
             {
-                toad.x += 1;
-                toad.body_animate = 1;
                 toad.updated = 1;
+                toad.x += 1;
+                toad.body_animate = 1; // Start body animation
             }
         }
-        else
+        else // Not moving
         {
-            // If not moving
-            // Stop and reset body animation
-            if (toad.body_animate || toad.body_frame_index > 0)
+            if (toad.body_animate || toad.body_frame_index != TOAD_BODY_STAND_FRAME)
             {
+                // If body is animated OR body frame is not STAND_FRAME.
+                toad.updated = 1;
                 // Stop body animation
                 toad.body_animate = 0;
-                toad.body_frame_index = 0;
+                toad.body_frame_index = TOAD_BODY_STAND_FRAME;
                 // Start smoke animation
                 toad.smoke_frame_index = 0;
                 toad.smoke_frame_delay = TOAD_SMOKE_FRAME_DELAY;
-                toad.updated = 1;
             }
         }
 
         if (toad.updated)
         {
-            // If there's been any changes, update the metasprite
+            // If there's been any changes, update the metasprite.
             toad.updated = 0;
             move_toad(&toad, toad.x, toad.y);
         }
 
         // Decrement animation delays
-
         if (toad.body_frame_delay > 0)
             toad.body_frame_delay--;
-
         if (toad.smoke_frame_delay > 0)
             toad.smoke_frame_delay--;
 
